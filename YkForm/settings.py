@@ -2,6 +2,9 @@ import peewee_async
 
 settings = {
 
+
+    "secret_key":'yksdm66hsbkjfbYY',
+
     "redis":{
 
         "host":"127.0.0.1",
