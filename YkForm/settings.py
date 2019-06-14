@@ -7,6 +7,12 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 settings = {
 
 
+
+    "static_path": "/home/python/PycharmProjects/YkForm/static",
+    "static_url_prefix": "/static/",
+    "template_path": "templates",
+
+
     "secret_key":'yksdm66hsbkjfbYY',
     "jwt_expire":30*24*3600,
 

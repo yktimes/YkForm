@@ -1,18 +1,18 @@
-from tornado.web import authenticated
-from YkForm.handler import RedisHandler
-from apps.users.models import User
-from apps.utils.form_decorators import authenticated_async
 import json
-from playhouse.shortcuts import model_to_dict
-from apps.community.forms import CommunityGroupForm, GroupApplyForm
-from apps.community.models import CommunityGroupMember, CommunityGroup
 import uuid
 import aiofiles
 import os
 
+from YkForm.handler import RedisHandler
+from playhouse.shortcuts import model_to_dict
+from apps.utils.form_decorators import authenticated_async
+
 from apps.utils.util_func import json_serial
+from apps.community.forms import *
+from apps.community.models import *
 
 
+# 创建小组
 class GroupHandler(RedisHandler):
 
     async def get(self, *args, **kwargs):
@@ -93,6 +93,7 @@ class GroupHandler(RedisHandler):
         self.finish(re_data)
 
 
+# 申请加入小组
 class GroupMemberHandler(RedisHandler):
 
     @authenticated_async
@@ -142,31 +143,143 @@ class GroupMemberHandler(RedisHandler):
         self.finish(re_data)
 
 
+# 获取小组详情
 class GroupDetailHandler(RedisHandler):
     @authenticated_async
-    async def get(self,group_id, *args, **kwargs):
+    async def get(self, group_id, *args, **kwargs):
         re_data = {}
         try:
-            group = await self.application.objects.get(CommunityGroup,id=int(group_id))
+            group = await self.application.objects.get(CommunityGroup, id=int(group_id))
 
             item_dict = {}
-            item_dict["id"]=group.id
-            item_dict["name"]=group.name
-            item_dict["desc"]=group.desc
-            item_dict["notice"]=group.notice
-            item_dict["member_nums"]=group.member_nums
-            item_dict["post_nums"]=group.post_nums
+            item_dict["id"] = group.id
+            item_dict["name"] = group.name
+            item_dict["desc"] = group.desc
+            item_dict["notice"] = group.notice
+            item_dict["member_nums"] = group.member_nums
+            item_dict["post_nums"] = group.post_nums
             item_dict["front_image"] = "{}/media/{}".format(self.settings["SITE_URL"], group.front_image)
 
-            re_data=item_dict
-
-
-
-
+            re_data = item_dict
 
 
         except CommunityGroup.DoesNotExist as e:
             self.set_status(400)
 
+        self.finish(re_data)
+
+
+class PostHandler(RedisHandler):
+
+    @authenticated_async
+    async def get(self, group_id, *args, **kwargs):
+        # 获取小组内的帖子
+        post_list = []
+        try:
+            group = await self.application.objects.get(CommunityGroup, id=int(group_id))
+            # 要判断发帖是否在这个组
+            group_member = await self.application.objects.get(
+                CommunityGroupMember,
+                user=self.current_user,
+                community=group,
+                status="agree")
+        except User.DoesNotExist as e:
+            self.set_status(404)
+        except CommunityGroupMember.DoesNotExist as e:
+            self.set_status(403)
+
+        else:
+            posts_query = Post.extend()
+            c = self.get_argument("c", None)
+            if c == "hot":
+                posts_query = posts_query.filter(Post.is_hot == True)
+            if c == "excellent":
+                posts_query = posts_query.filter(Post.is_excellent == True)
+            posts = await self.application.objects.execute(posts_query)
+
+            for post in posts:
+                item_dict = {
+                    "user": {
+                        "id": post.user.id,
+                        "nick_name": post.user.nick_name
+                    },
+                    "id": post.id,
+                    "title": post.title,
+                    "content": post.content,
+                    "comment_nums": post.comment_nums
+                }
+                post_list.append(item_dict)
+
+        self.finish(json.dumps(post_list))
+
+    @authenticated_async
+    async def post(self, group_id, *args, **kwargs):
+        re_data = {}
+
+        try:
+            group = await self.application.objects.get(CommunityGroup, id=int(group_id))
+            # 要判断发帖是否在这个组
+            group_member = await self.application.objects.get(
+                CommunityGroupMember,
+                user=self.current_user,
+                community=group,
+                status="agree")
+        except User.DoesNotExist as e:
+            self.set_status(404)
+        except CommunityGroupMember.DoesNotExist as e:
+            self.set_status(403)
+
+        else:
+            param = self.request.body.decode('utf8')
+            param = json.loads(param)
+
+            form = PostForm.from_json(param)
+            if form.validate():
+                post = await self.application.objects.create(
+                    Post, user=self.current_user,
+                    title=form.title.data,
+                    content=form.content.data,
+                    group=group
+                )
+
+                re_data["id"] = post.id
+
+            else:
+                self.set_status(400)
+                for field in form.errors:
+                    re_data[field] = form.errors[field][0]
+
+        self.finish(re_data)
+
+
+class PostDetailHandler(RedisHandler):
+
+
+
+    @authenticated_async
+    async def get(self, post_id, *args, **kwargs):
+        # 获取某一个帖子的详情
+        re_data = {}
+        post_details = await self.application.objects.execute(Post.extend().where(Post.id == int(post_id)))
+        re_count = 0
+        for data in post_details:
+
+            user = {}
+            user["id"]=data.user.id
+            user["nick_name"] = data.user.nick_name or data.user.mobile
+
+            item_dict = {}
+            # item_dict["user"] = model_to_dict(data.user)
+            item_dict["user"] = user
+            item_dict["title"] = data.title
+            item_dict["content"] = data.content
+            item_dict["comment_nums"] = data.comment_nums
+            item_dict["add_time"] = data.add_time.strftime("%Y-%m-%d")
+            re_data = item_dict
+
+            re_count += 1
+
+        if re_count == 0:
+            self.set_status(404)
 
         self.finish(re_data)
