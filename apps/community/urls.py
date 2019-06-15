@@ -16,4 +16,12 @@ urlpattern = (
     # 帖子详情
     url('/posts/([0-9]+)/',PostDetailHandler),
 
+    # 发布评论
+    url('/posts/([0-9]+)/comments/',PostCommentHandler),
+    # 评论回复
+    url('/comments/([0-9]+)/replys/',CommentReplyHandler),
+
+    # 点赞
+    url('/comments/([0-9]+)/likes/',CommentsLikeHanlder),
+
 )

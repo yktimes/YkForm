@@ -1,6 +1,6 @@
 from wtforms_tornado import Form
-from wtforms import StringField,TextAreaField
-from wtforms.validators import DataRequired,Regexp,AnyOf
+from wtforms import StringField,TextAreaField,IntegerField
+from wtforms.validators import DataRequired,Regexp,AnyOf,Length
 
 
 
@@ -20,3 +20,16 @@ class GroupApplyForm(Form):
 class PostForm(Form):
     title =  StringField("标题",validators=[DataRequired("请输入标题")])
     content =  StringField("内容",validators=[DataRequired("请输入内容")])
+
+
+class PostCommentForm(Form):
+    content =  StringField("评论",validators=[DataRequired("请输入评论内容"),Length(
+        min=5,message="评论不少于5个字"
+    )])
+
+class CommentReplyForm(Form):
+    replyed_user = StringField("回复用户", validators=[DataRequired("请输入回复用户")])
+
+    content = StringField("评论", validators=[DataRequired("请输入评论内容"), Length(
+        min=5, message="评论不少于5个字"
+    )])

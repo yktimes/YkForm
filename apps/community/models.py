@@ -58,7 +58,7 @@ class Post(BaseModel):
 class PostComment(BaseModel):
     # 评论和回复
     user = ForeignKeyField(User, verbose_name="用户", related_name="author")
-    post = ForeignKeyField(Post, verbose_name="帖子")
+    post = ForeignKeyField(Post, verbose_name="帖子",null=True)
     parent_comment = ForeignKeyField('self', null=True, verbose_name="评论", related_name="comments_parent")
     reply_user = ForeignKeyField(User, verbose_name="用户", related_name="replyed_author", null=True)
     content = CharField(max_length=1000, verbose_name="内容")
@@ -69,6 +69,10 @@ class PostComment(BaseModel):
     def extend(cls):
         #1. 多表join
         #2. 多字段映射同一个model
+
+        # alias()起别名
+        # switch(cls) 切换到cls 如果直接join 会报错
+
         author = User.alias()
         relyed_user = User.alias()
         return cls.select(cls, Post, relyed_user.id, relyed_user.nick_name, author.id, author.nick_name
@@ -78,6 +82,9 @@ class PostComment(BaseModel):
             relyed_user, join_type=JOIN.LEFT_OUTER, on=cls.reply_user
         )
 
+    @classmethod
+    def extend_post(cls):
+            return cls.select(cls, Post.id).join(Post)
 
 class CommentLike(BaseModel):
     # 评论点赞
